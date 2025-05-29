@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Mozzarella Production Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #1a1a1a; /* Dark background inspired by image */
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .dashboard-container {
+            width: 100%;
+            max-width: 1600px; /* Wider for desktop feel */
+            background-color: #212121; /* Slightly lighter dark background for dashboard */
+            border-radius: 1rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Ensure rounded corners */
+        }
+        header {
+            background-color: #2c2c2c; /* Darker header */
+            border-bottom: 1px solid #3a3a3a;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: #e0e0e0;
+        }
+        .module-card {
+            background-color: #2c2c2c;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 180px; /* Consistent height for grid */
+            border: 1px solid transparent; /* Default border */
+            transition: all 0.2s ease-in-out;
+        }
+        .module-card:hover {
+            border-color: #4a4a4a; /* Subtle hover effect */
+        }
+        .status-pill {
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px; /* Fully rounded */
+            font-size: 0.75rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            color: #ffffff;
+        }
+        .status-safe { background-color: #38a169; } /* Green */
+        .status-warning { background-color: #f6ad55; } /* Orange */
+        .status-fault { background-color: #e53e3e; } /* Red */
+        .status-waste { background-color: #ecc94b; } /* Yellow for waste indicators */
+        .status-quality { background-color: #63b3ed; } /* Light blue for quality */
+        .status-info { background-color: #4299e1; } /* Blue for general info */
+
+        .section-title {
+            color: #a0aec0; /* Lighter gray for section titles */
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+
+        .metric-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #e0e0e0;
+        }
+        .metric-label {
+            font-size: 0.875rem;
+            color: #a0aec0;
+        }
+
+        .toggle-button {
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border: 1px solid;
+            color: #e0e0e0;
+            background-color: #3a3a3a;
+            border-color: #4a4a4a;
+        }
+        .toggle-button.active {
+            background-color: #4299e1; /* Blue for active */
+            border-color: #4299e1;
+            box-shadow: 0 2px 8px rgba(66, 153, 225, 0.3);
+        }
+
+        /* Specific styles for the Environmental & Waste Statistics card */
+        .env-stats-card {
+            background-color: #2c2c2c;
+            border-radius: 0.75rem;
+            padding: 1.25rem;
+            min-height: 380px; /* Taller card */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+        .progress-bar-container {
+            width: 100%;
+            background-color: #3a3a3a;
+            border-radius: 0.5rem;
+            height: 10px;
+            overflow: hidden;
+            margin-top: 0.25rem;
+        }
+        .progress-bar {
+            height: 100%;
+            background-color: #38a169; /* Green for positive stats */
+            border-radius: 0.5rem;
+            transition: width 0.5s ease-out;
+        }
+
+        /* Suggestion box */
+        .suggestion-box {
+            background-color: #3a3a3a;
+            border-left: 4px solid #4299e1;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-top: 1rem;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+        }
+        .suggestion-box strong {
+            color: #a0aec0;
+        }
+
+        /* For detailed lists within a card (like Coagulation Tanks) */
+        .detail-list div {
+            display: flex;
+            justify-content: space-between;
+            color: #a0aec0;
+            font-size: 0.875rem;
+            margin-bottom: 0.3rem;
+        }
+        .detail-list .value {
+            color: #e0e0e0;
+            font-weight: 500;
+        }
+        .detail-list .status-text {
+             font-size: 0.85rem;
+             font-weight: 500;
+        }
+        .detail-list .status-text.safe { color: #38a169; }
+        .detail-list .status-text.warning { color: #f6ad55; }
+        .detail-list .status-text.fault { color: #e53e3e; }
+        .detail-list .status-text.waste { color: #ecc94b; }
+        .detail-list .status-text.quality { color: #63b3ed; }
+        .detail-list .status-text.info { color: #4299e1; }
+
+
+    </style>
+</head>
+<body class="antialiased">
+
+    <div class="dashboard-container">
+        <header>
+            <div class="flex items-center gap-4">
+                <h1 class="text-3xl font-bold">IoT Mozzarella</h1>
+                <span class="text-gray-400">|</span>
+                <span class="text-xl font-medium">Production Overview</span>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-gray-400">Saplemaendal</span>
+                <div class="flex gap-2">
+                    <button id="toggle-traditional" class="toggle-button">Traditional</button>
+                    <button id="toggle-iot" class="toggle-button active">IoT-Enabled</button>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 p-6">
+            <div class="col-span-full">
+                <h2 class="section-title mb-4">Equipment Monitoring</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="equipment-monitoring-grid">
+                    </div>
+            </div>
+
+            <div class="col-span-full">
+                <h2 class="section-title mt-6 mb-4">Environmental & Waste Statistics</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" id="env-waste-stats-grid">
+                    <div class="env-stats-card col-span-1 md:col-span-2 lg:col-span-2 xl:col-span-2">
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center text-e0e0e0 mb-2">
+                                <span class="text-lg font-semibold">Water Reused</span>
+                                <span id="water-reused-value" class="text-xl font-bold text-green-400">68%</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div id="water-reused-bar" class="progress-bar" style="width: 68%;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center text-e0e0e0 mb-2">
+                                <span class="text-lg font-semibold">Energy Saved</span>
+                                <span id="energy-saved-value" class="text-xl font-bold text-green-400">12%</span>
+                            </div>
+                            <div class="progress-bar-container">
+                                <div id="energy-saved-bar" class="progress-bar" style="width: 12%;"></div>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center text-e0e0e0 mb-2">
+                                <span class="text-lg font-semibold">Waste Volume</span>
+                                <span id="waste-volume-value" class="text-xl font-bold text-red-400">255 kg</span>
+                            </div>
+                        </div>
+                        <div id="suggestion-box" class="suggestion-box hidden">
+                            <strong>Suggestion:</strong> <span id="suggestion-text"></span>
+                        </div>
+                    </div>
+
+                    <div class="module-card">
+                        <h3 class="text-lg font-semibold text-white mb-2">Leak Detection</h3>
+                        <div class="flex items-center justify-between text-e0e0e0 text-sm">
+                            <span>Flow Rate</span>
+                            <span id="leak-flow-rate" class="metric-value text-xl">1 l/min</span>
+                        </div>
+                        <div class="flex items-center justify-between mt-1">
+                             <span id="leak-status" class="status-pill status-safe">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                SAFE
+                             </span>
+                        </div>
+                    </div>
+
+                    <div class="module-card">
+                        <h3 class="text-lg font-semibold text-white mb-2">Contamination Risk</h3>
+                        <div class="flex items-center justify-between text-e0e0e0 text-sm">
+                            <span>Bacterial Count</span>
+                            <span id="bacterial-count" class="metric-value text-xl">15 CFU/ml</span>
+                        </div>
+                        <div class="flex items-center justify-between mt-1">
+                            <span id="contamination-status" class="status-pill status-safe">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                LOW
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="module-card">
+                        <h3 class="text-lg font-semibold text-white mb-2">Energy Monitoring</h3>
+                        <div class="flex items-center justify-between text-e0e0e0 text-sm">
+                            <span>Current Usage</span>
+                            <span id="current-energy-usage" class="metric-value text-xl">345 kWh</span>
+                        </div>
+                        <div class="flex items-center justify-between mt-1">
+                            <span id="energy-status" class="status-pill status-safe">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
+                                OPTIMAL
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Data structure for the dashboard cards
+        const dashboardData = {
+            traditional: {
+                // Equipment Monitoring
+                milk_reception: {
+                    title: "Milk Reception and Storage Tanks",
+                    metrics: [
+                        { label: "Temperature", value: "45.1 °F", status: "WARNING", statusType: "warning", indicator: "!" },
+                        { label: "Fill Level", value: "95%", status: "OVERFLOW", statusType: "fault", indicator: "X" }
+                    ],
+                    details: null
+                },
+                pasteurization: {
+                    title: "Pasteurization Tanks",
+                    metrics: [
+                        { label: "Temperature", value: "115.3 °F", status: "WARNING", statusType: "warning", indicator: "!" },
+                        { label: "pH", value: "6.8", status: "LOW", statusType: "warning", indicator: "!" }
+                    ],
+                    details: null
+                },
+                culture_incubation: {
+                    title: "Culture Incubation Tanks",
+                    metrics: [
+                        { label: "Temperature", value: "105.0 °F", status: "STABLE", statusType: "safe", indicator: "✓" },
+                        { label: "FH Level", value: "N/A", status: "N/A", statusType: "info" } // No IoT, less info
+                    ],
+                    details: null
+                },
+                curd_cutting: {
+                    title: "Curd Cutting and Stirring Equipment",
+                    metrics: [
+                        { label: "Strands", value: "28 strimm", status: "INCONSISTENT", statusType: "warning", indicator: "!" },
+                        { label: "Cutting Speed", value: "Manual", status: "N/A", statusType: "info" }
+                    ],
+                    details: null
+                },
+                molding_shaping: {
+                    title: "Molding and Shaping Machines",
+                    metrics: [
+                        { label: "Pressure", value: "130 psi", status: "VARYING", statusType: "warning", indicator: "!" },
+                        { label: "Motor Torque", value: "N/A", status: "N/A", statusType: "info" }
+                    ],
+                    details: null
+                },
+                brining: {
+                    title: "Brining Tanks",
+                    metrics: [
+                        { label: "Salt Conc.", value: "11.2 %", status: "WASTE", statusType: "waste", indicator: "!" },
+                        { label: "Temp.", value: "58°F", status: "HIGH", statusType: "warning", indicator: "!" }
+                    ],
+                    details: null
+                },
+                coagulation: {
+                    title: "Coagulation Tanks/Vats",
+                    metrics: [
+                        { label: "Temperature", value: "92.5 °F", status: "WARNING", statusType: "warning", indicator: "!" },
+                        { label: "Fill Level", value: "90%", status: "OKAY", statusType: "info" },
+                        { label: "pH", value: "6.0", status: "DEVIATING", statusType: "warning", indicator: "!" }
+                    ],
+                    details: null
+                },
+                // Environmental & Waste Statistics
+                env_stats: {
+                    waterReused: { value: 15, unit: "%", statusType: "warning" },
+                    energySaved: { value: 5, unit: "%", statusType: "warning" },
+                    wasteVolume: { value: 650, unit: "kg", statusType: "fault" },
+                    suggestion: { text: "Manual waste sorting needed.", statusType: "info", hidden: true },
+                    leakDetection: { flowRate: "5 l/min", status: "LEAK", statusType: "fault" },
+                    bacterialCount: { value: "300 CFU/ml", status: "HIGH", statusType: "fault" },
+                    energyMonitoring: { usage: "800 kWh", status: "HIGH", statusType: "warning" }
+                }
+            },
+            iot: {
+                // Equipment Monitoring
+                milk_reception: {
+                    title: "Milk Reception and Storage Tanks",
+                    metrics: [
+                        { label: "Temperature", value: "38.4 °F", status: "SAFE", statusType: "safe", indicator: "✓" },
+                        { label: "Fill Level", value: "90%", status: "SAFE", statusType: "safe", indicator: "✓" }
+                    ],
+                    details: null
+                },
+                pasteurization: {
+                    title: "Pasteurization Tanks",
+                    metrics: [
+                        { label: "Temperature", value: "108.7 °F", status: "OPTIMAL", statusType: "safe", indicator: "✓" },
+                        { label: "pH", value: "6.2", status: "SAFE", statusType: "safe", indicator: "✓" }
+                    ],
+                    details: null
+                },
+                culture_incubation: {
+                    title: "Culture Incubation Tanks",
+                    metrics: [
+                        { label: "Temperature", value: "108.7 °F", status: "OPTIMAL", statusType: "safe", indicator: "✓" },
+                        { label: "FH Level", value: "85%", status: "SAFE", statusType: "safe", indicator: "✓" }
+                    ],
+                    details: null
+                },
+                curd_cutting: {
+                    title: "Curd Cutting and Stirring Equipment",
+                    metrics: [
+                        { label: "Strands", value: "35 strimm", status: "OPTIMAL", statusType: "safe", indicator: "✓" },
+                        { label: "Cutting Speed", value: "Auto", status: "SAFE", statusType: "safe", indicator: "✓" }
+                    ],
+                    details: null
+                },
+                molding_shaping: {
+                    title: "Molding and Shaping Machines",
+                    metrics: [
+                        { label: "Pressure", value: "140 psi", status: "OPTIMAL", statusType: "safe", indicator: "✓" },
+                        { label: "Motor Torque", value: "15 Nm", status: "HEALTHY", statusType: "safe", indicator: "✓" }
+                    ],
+                    details: null
+                },
+                brining: {
+                    title: "Brining Tanks",
+                    metrics: [
+                        { label: "Salt Conc.", value: "14.5 %", status: "OPTIMAL", statusType: "safe", indicator: "✓" },
+                        { label: "Temp.", value: "52°F", status: "OPTIMAL", statusType: "safe", indicator: "✓" }
+                    ],
+                    details: null
+                },
+                coagulation: {
+                    title: "Coagulation Tanks/Vats",
+                    metrics: [
+                        { label: "Temperature", value: "83.1 °F", status: "OPTIMAL", statusType: "safe", indicator: "✓" },
+                        { label: "Fill Level", value: "85%", status: "SAFE", statusType: "safe", indicator: "✓" },
+                        { label: "pH", value: "5.6", status: "OPTIMAL", statusType: "safe", indicator: "✓" }
+                    ],
+                    details: null
+                },
+                // Environmental & Waste Statistics
+                env_stats: {
+                    waterReused: { value: 68, unit: "%", statusType: "safe" },
+                    energySaved: { value: 12, unit: "%", statusType: "safe" },
+                    wasteVolume: { value: 255, unit: "kg", statusType: "safe" },
+                    suggestion: { text: "Regenerate brine in 2 hours for optimal concentration.", statusType: "info", hidden: false },
+                    leakDetection: { flowRate: "0.1 l/min", status: "SAFE", statusType: "safe" },
+                    bacterialCount: { value: "15 CFU/ml", status: "LOW", statusType: "safe" },
+                    energyMonitoring: { usage: "345 kWh", status: "OPTIMAL", statusType: "safe" }
+                }
+            }
+        };
+
+        const equipmentGrid = document.getElementById('equipment-monitoring-grid');
+        const envStatsGrid = document.getElementById('env-waste-stats-grid');
+        const toggleTraditionalBtn = document.getElementById('toggle-traditional');
+        const toggleIoTBtn = document.getElementById('toggle-iot');
+
+        let currentScenario = 'iot'; // Default to IoT-Enabled as per your image
+
+        // Helper function to create a status pill HTML
+        function createStatusPill(status, statusType, indicator = '') {
+            let icon = '';
+            if (indicator === '✓') {
+                icon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>`;
+            } else if (indicator === '!') {
+                icon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-12a1 1 0 102 0v4a1 1 0 10-2 0V6zm1 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"></path></svg>`;
+            } else if (indicator === 'X') {
+                icon = `<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586l-1.293-1.293z" clip-rule="evenodd"></path></svg>`;
+            }
+
+            return `<span class="status-pill status-${statusType}">` + icon + status + `</span>`;
+        }
+
+        // Function to render the dashboard
+        function renderDashboard() {
+            const data = dashboardData[currentScenario];
+            equipmentGrid.innerHTML = ''; // Clear previous cards
+
+            // Render Equipment Monitoring cards
+            for (const key in data) {
+                if (key !== 'env_stats') {
+                    const module = data[key];
+                    let metricsHtml = '';
+                    module.metrics.forEach(metric => {
+                        metricsHtml += `
+                            <div class="flex items-center justify-between mt-2">
+                                <span class="metric-label">${metric.label}</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="metric-value text-xl">${metric.value}</span>
+                                    ${createStatusPill(metric.status, metric.statusType, metric.indicator)}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    const cardHtml = `
+                        <div class="module-card">
+                            <h3 class="text-lg font-semibold text-white mb-4">${module.title}</h3>
+                            ${metricsHtml}
+                        </div>
+                    `;
+                    equipmentGrid.innerHTML += cardHtml;
+                }
+            }
+
+            // Render Environmental & Waste Statistics
+            const envStats = data.env_stats;
+
+            // Update main stats card
+            document.getElementById('water-reused-value').textContent = `${envStats.waterReused.value}${envStats.waterReused.unit}`;
+            document.getElementById('water-reused-bar').style.width = `${envStats.waterReused.value}%`;
+            document.getElementById('energy-saved-value').textContent = `${envStats.energySaved.value}${envStats.energySaved.unit}`;
+            document.getElementById('energy-saved-bar').style.width = `${envStats.energySaved.value}%`;
+            document.getElementById('waste-volume-value').textContent = `${envStats.wasteVolume.value} ${envStats.wasteVolume.unit}`;
+
+            // Update suggestion box
+            const suggestionBox = document.getElementById('suggestion-box');
+            const suggestionText = document.getElementById('suggestion-text');
+            if (envStats.suggestion && !envStats.suggestion.hidden) {
+                suggestionBox.classList.remove('hidden');
+                suggestionText.textContent = envStats.suggestion.text;
+            } else {
+                suggestionBox.classList.add('hidden');
+            }
+
+            // Update additional Env & Waste cards (Leak Detection, Contamination, Energy Monitoring)
+            document.getElementById('leak-flow-rate').textContent = envStats.leakDetection.flowRate;
+            document.getElementById('leak-status').className = `status-pill status-${envStats.leakDetection.statusType}`;
+            document.getElementById('leak-status').innerHTML = createStatusPill(envStats.leakDetection.status, envStats.leakDetection.statusType, envStats.leakDetection.statusType === 'safe' ? '✓' : '!').replace(/<span.*?>|<\/span>/g, '');
+
+            document.getElementById('bacterial-count').textContent = envStats.bacterialCount.value;
+            document.getElementById('contamination-status').className = `status-pill status-${envStats.bacterialCount.statusType}`;
+            document.getElementById('contamination-status').innerHTML = createStatusPill(envStats.bacterialCount.status, envStats.bacterialCount.statusType, envStats.bacterialCount.statusType === 'safe' ? '✓' : '!').replace(/<span.*?>|<\/span>/g, '');
+
+            document.getElementById('current-energy-usage').textContent = envStats.energyMonitoring.usage;
+            document.getElementById('energy-status').className = `status-pill status-${envStats.energyMonitoring.statusType}`;
+            document.getElementById('energy-status').innerHTML = createStatusPill(envStats.energyMonitoring.status, envStats.energyMonitoring.statusType, envStats.energyMonitoring.statusType === 'safe' ? '✓' : '!').replace(/<span.*?>|<\/span>/g, '');
+
+
+            // Update toggle button active states
+            toggleTraditionalBtn.classList.remove('active');
+            toggleIoTBtn.classList.remove('active');
+            if (currentScenario === 'traditional') {
+                toggleTraditionalBtn.classList.add('active');
+            } else {
+                toggleIoTBtn.classList.add('active');
+            }
+        }
+
+        // Event Listeners for Scenario Toggle Buttons
+        toggleTraditionalBtn.addEventListener('click', () => {
+            currentScenario = 'traditional';
+            renderDashboard();
+        });
+
+        toggleIoTBtn.addEventListener('click', () => {
+            currentScenario = 'iot';
+            renderDashboard();
+        });
+
+        // Initial render on page load
+        document.addEventListener('DOMContentLoaded', renderDashboard);
+    </script>
+</body>
+</html>
